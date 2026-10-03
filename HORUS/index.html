@@ -10,6 +10,8 @@
   <style>
     * { box-sizing: border-box; }
 
+    [hidden] { display: none !important; }
+
     html, body {
       height: 100%;
       margin: 0;
@@ -55,15 +57,38 @@
       z-index: 3;
     }
 
+    /* monitor switching on: a bright line that opens up into the picture */
+    #tube {
+      position: fixed;
+      inset: 0;
+      background: #dfe6ff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 4;
+      animation: power-on 0.9s ease-out 0.4s;
+    }
+
+    @keyframes power-on {
+      0% { opacity: 1; transform: scale(0, 0.004); }
+      30% { opacity: 1; transform: scale(1, 0.004); }
+      60% { opacity: 0.18; transform: scale(1, 1); }
+      100% { opacity: 0; transform: scale(1, 1); }
+    }
+
+    #vga, #post {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 3vh 4vw;
+    }
+
+    #vga { white-space: pre-wrap; }
+
     #post {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       gap: 2em;
-      max-width: 1200px;
       min-height: 100%;
-      margin: 0 auto;
-      padding: 3vh 4vw;
     }
 
     #post .step {
@@ -74,11 +99,84 @@
     #post .gap { margin-top: 1.15em; }
 
     #post .indent { padding-left: 2ch; }
+
+    /* command interface, shown after the BIOS screen clears */
+    #term {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 3vh 4vw;
+    }
+
+    #term-lines div, #prompt {
+      min-height: 1.15em;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    #term-lines .thinking {
+      color: #5f7a3a;
+      text-shadow: 0 0 4px rgba(95, 122, 58, 0.5);
+    }
+
+    #term-lines .horus {
+      color: #b8e060;
+      text-shadow: 0 0 4px rgba(184, 224, 96, 0.45);
+    }
+
+    #prompt { position: relative; }
+
+    /* the real input stays invisible; #echo shows what was typed */
+    #cmd {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      padding: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: transparent;
+      font: inherit;
+      opacity: 0;
+    }
+
+    .cursor { animation: blink 0.5s steps(1) infinite; }
+
+    .bar {
+      display: inline-block;
+      width: 20ch;
+      height: 0.75em;
+      vertical-align: -0.05em;
+    }
+
+    .bar-fill {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: currentColor;
+      box-shadow: 0 0 4px rgba(255, 255, 255, 0.35);
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #tube { display: none; }
+      .cursor { animation: none; }
+    }
   </style>
 </head>
 <body>
   <div id="crt">
-    <div id="post">
+    <div id="tube"></div>
+
+    <div id="vga" hidden>COMTECH SVGA BIOS v2.11
+Copyright (C) 1991-95, COMTECH Systems, Inc.
+4096K Video Memory</div>
+
+    <div id="post" hidden>
       <div>
         <div id="post-header" class="step">COMTECH H.O.R.U.S BIOS  v0.94NP, A USDSA Ally
 Copyright (C) 1982-96, COMTECH Software, Inc.</div>
@@ -90,32 +188,64 @@ Copyright (C) 1982-96, COMTECH Software, Inc.</div>
 
         <div id="post-aie" class="step gap">COMTECH Adaptive Interface Extension v0.3B
 Copyright (C) 1996, COMTECH Systems, Inc.</div>
-        <div id="post-ide1" class="step indent">Detecting IDE Primary Master   ... <span id="ide1-result"></span></div>
-        <div id="post-ide2" class="step indent">Detecting IDE Primary Slave    ... <span id="ide2-result"></span></div>
-        <div id="post-ide3" class="step indent">Detecting IDE Secondary Master... <span id="ide3-result">[Press F4 to skip]</span></div>
-        <div id="post-ide4" class="step indent">Detecting IDE Secondary Slave ... <span id="ide4-result">[Press F4 to skip]</span></div>
+        <div id="post-ide1" class="step indent">Detecting IDE Primary Master   ... <span class="result">[Press F4 to skip]</span></div>
+        <div id="post-ide2" class="step indent">Detecting IDE Primary Slave    ... <span class="result">[Press F4 to skip]</span></div>
+        <div id="post-ide3" class="step indent">Detecting IDE Secondary Master... <span class="result">[Press F4 to skip]</span></div>
+        <div id="post-ide4" class="step indent">Detecting IDE Secondary Slave ... <span class="result">[Press F4 to skip]</span></div>
       </div>
 
       <div id="post-footer" class="step">Press DEL to enter SETUP
  4/15/96-i430VX,LXS4426-R37RNF4C35-00</div>
     </div>
+
+    <div id="term" hidden>
+      <div id="term-lines"></div>
+      <div id="prompt" hidden>&gt; <span id="echo"></span><span class="cursor">_</span><input id="cmd" type="text" maxlength="32" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Terminal input"></div>
+    </div>
   </div>
 
   <script>
     var MEMORY_K = 32768;
+    var PASSWORD = "ILOVEMONEY"; // checked without regard to case
+    var PASSWORD_ATTEMPTS = 3;
 
-    function show(id) {
+    var crt = document.getElementById("crt");
+    var vga = document.getElementById("vga");
+    var post = document.getElementById("post");
+    var term = document.getElementById("term");
+    var termLines = document.getElementById("term-lines");
+    var promptRow = document.getElementById("prompt");
+    var echo = document.getElementById("echo");
+    var cmd = document.getElementById("cmd");
+
+    // hardware never takes exactly the same time twice
+    function jitter(ms) {
+      return Math.round(ms * (0.8 + Math.random() * 0.4));
+    }
+
+    function show() {
+      var ids = arguments;
       return function (next) {
-        document.getElementById(id).style.visibility = "visible";
+        for (var i = 0; i < ids.length; i++) {
+          document.getElementById(ids[i]).style.visibility = "visible";
+        }
         next();
       };
     }
 
-    function setText(id, text) {
-      return function (next) {
-        document.getElementById(id).textContent = text;
-        next();
-      };
+    function showVideoBios(next) {
+      vga.hidden = false;
+      next();
+    }
+
+    function clearScreen(next) {
+      vga.hidden = true;
+      next();
+    }
+
+    function showPostScreen(next) {
+      post.hidden = false;
+      show("post-header", "post-board", "post-footer")(next);
     }
 
     function countMemory(next) {
@@ -123,47 +253,292 @@ Copyright (C) 1996, COMTECH Systems, Inc.</div>
       var k = 0;
       document.getElementById("post-mem").style.visibility = "visible";
       var timer = setInterval(function () {
-        k += 256;
+        k = Math.min(k + 384, MEMORY_K);
         count.textContent = String(k).padStart(5, " ");
         if (k >= MEMORY_K) {
           clearInterval(timer);
           setTimeout(function () {
             document.getElementById("mem-ok").textContent = " OK";
             next();
-          }, 500);
+          }, 250);
         }
-      }, 28);
+      }, 30);
+    }
+
+    // F4 gives up on the drive currently being probed
+    var skipDetect = null;
+
+    function detect(rowId, found, ms) {
+      return function (next) {
+        var row = document.getElementById(rowId);
+        row.style.visibility = "visible";
+        var timer = setTimeout(function () { finish(found); }, jitter(ms));
+        function finish(text) {
+          clearTimeout(timer);
+          skipDetect = null;
+          row.querySelector(".result").textContent = text;
+          next();
+        }
+        skipDetect = function () { finish("None"); };
+      };
     }
 
     // each step waits `wait` ms after the previous one finishes
     var POST_STEPS = [
-      { wait: 1800, fn: show("post-header") },
-      { wait: 0, fn: show("post-footer") },
-      { wait: 1100, fn: show("post-board") },
-      { wait: 1400, fn: show("post-cpu") },
-      { wait: 500, fn: countMemory },
-      { wait: 1200, fn: show("post-aie") },
-      { wait: 900, fn: show("post-ide1") },
-      { wait: 1900, fn: setText("ide1-result", "PCemHD") },
-      { wait: 300, fn: show("post-ide2") },
-      { wait: 2600, fn: setText("ide2-result", "PCemCD") },
-      { wait: 300, fn: show("post-ide3") },
-      { wait: 4200, fn: setText("ide3-result", "None") },
-      { wait: 300, fn: show("post-ide4") },
-      { wait: 4200, fn: setText("ide4-result", "None") }
+      { wait: 2600, fn: showVideoBios },
+      { wait: 2200, fn: clearScreen },
+      { wait: 600, fn: showPostScreen },
+      { wait: 700, fn: show("post-cpu") },
+      { wait: 300, fn: countMemory },
+      { wait: 900, fn: show("post-aie") },
+      { wait: 500, fn: detect("post-ide1", "PCemHD", 900) },
+      { wait: 150, fn: detect("post-ide2", "PCemCD", 1900) },
+      { wait: 150, fn: detect("post-ide3", "None", 3800) },
+      { wait: 150, fn: detect("post-ide4", "None", 3800) },
+      { wait: 1600, fn: function (next) { post.hidden = true; next(); } }
     ];
 
-    function runPost() {
+    function runSteps(steps, done) {
       var i = 0;
       function next() {
-        if (i >= POST_STEPS.length) return;
-        var step = POST_STEPS[i++];
-        setTimeout(function () { step.fn(next); }, step.wait);
+        if (i >= steps.length) {
+          if (done) done();
+          return;
+        }
+        var step = steps[i++];
+        setTimeout(function () { step.fn(next); }, jitter(step.wait));
       }
       next();
     }
 
-    runPost();
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "F4") return;
+      e.preventDefault();
+      if (skipDetect) skipDetect();
+    });
+
+    // --- command interface ---
+
+    function print(text) {
+      var row = document.createElement("div");
+      row.textContent = text;
+      termLines.appendChild(row);
+      crt.scrollTop = crt.scrollHeight;
+      return row;
+    }
+
+    function say() {
+      var lines = arguments;
+      return function (next) {
+        for (var i = 0; i < lines.length; i++) print(lines[i]);
+        next();
+      };
+    }
+
+    function blackout(next) {
+      term.hidden = true;
+      next();
+    }
+
+    // prompt for a line of input; `masked` echoes asterisks instead of the text
+    var onSubmit = null;
+    var masked = false;
+
+    function renderEcho() {
+      echo.textContent = masked ? "*".repeat(cmd.value.length) : cmd.value;
+    }
+
+    function ask(mask, handler) {
+      masked = mask;
+      cmd.value = "";
+      renderEcho();
+      promptRow.hidden = false;
+      onSubmit = handler;
+      cmd.focus();
+      crt.scrollTop = crt.scrollHeight;
+    }
+
+    cmd.addEventListener("input", renderEcho);
+
+    cmd.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" || !onSubmit) return;
+      var handler = onSubmit;
+      onSubmit = null;
+      promptRow.hidden = true;
+      print("> " + echo.textContent);
+      handler(cmd.value.trim().toUpperCase());
+    });
+
+    // clicking anywhere on the screen focuses the prompt
+    crt.addEventListener("click", function () {
+      if (onSubmit) cmd.focus();
+    });
+
+    function shutdown(reason) {
+      print(reason);
+      runSteps([
+        { wait: 1000, fn: say("Shutting down...") },
+        { wait: 2600, fn: blackout }
+      ]);
+    }
+
+    function askAccess() {
+      ask(false, function (answer) {
+        if (answer === "Y" || answer === "YES") {
+          setTimeout(function () {
+            print("Please enter your H.O.R.U.S Override Password.");
+            askPassword(PASSWORD_ATTEMPTS);
+          }, jitter(500));
+        } else if (answer === "N" || answer === "NO") {
+          shutdown("Elevated access declined.");
+        } else {
+          print("Invalid response. Please enter Y or N.");
+          askAccess();
+        }
+      });
+    }
+
+    function askPassword(attemptsLeft) {
+      ask(true, function (password) {
+        // a moment of "checking" before the verdict
+        setTimeout(function () {
+          if (password === PASSWORD) {
+            print("Password accepted.");
+            connect();
+            return;
+          }
+          attemptsLeft--;
+          if (attemptsLeft > 0) {
+            print("Password denied. " + attemptsLeft + (attemptsLeft === 1 ? " attempt" : " attempts") + " remaining.");
+            askPassword(attemptsLeft);
+          } else {
+            shutdown("Password denied. Maximum attempts exceeded.");
+          }
+        }, jitter(1200));
+      });
+    }
+
+    // progress bar that advances in uneven lurches, like a real link coming up
+    function connectBar(next) {
+      print("");
+      var row = print("Connecting to secure H.O.R.U.S servers... [");
+      var bar = document.createElement("span");
+      var fill = document.createElement("span");
+      var label = document.createElement("span");
+      bar.className = "bar";
+      fill.className = "bar-fill";
+      bar.appendChild(fill);
+      row.appendChild(bar);
+      row.appendChild(document.createTextNode("] "));
+      row.appendChild(label);
+
+      var percent = 0;
+      function draw() {
+        fill.style.width = Math.round(percent / 5) + "ch";
+        label.textContent = String(percent).padStart(3, " ") + "%";
+      }
+      function tick() {
+        percent = Math.min(100, percent + 1 + Math.floor(Math.random() * 9));
+        draw();
+        if (percent >= 100) return next();
+        // mostly quick, with the occasional stall
+        setTimeout(tick, Math.random() < 0.15 ? jitter(1100) : jitter(220));
+      }
+      draw();
+      setTimeout(tick, jitter(700));
+    }
+
+    function connect() {
+      runSteps([
+        { wait: 900, fn: connectBar },
+        { wait: 700, fn: say("Privilege level increased: ADMINISTRATIVE") },
+        { wait: 600, fn: say("Secure session established.") },
+        { wait: 1100, fn: say("", "Initializing H.O.R.U.S...") },
+        { wait: 7000, fn: function (next) { termLines.textContent = ""; next(); } },
+        { wait: 2600, fn: say("H.O.R.U.S is online!") },
+        { wait: 1300, fn: function (next) { horusSay("Howdy! What can I do for you?", next); } }
+      ], chat);
+    }
+
+    // --- talking to H.O.R.U.S ---
+
+    // shows "H.O.R.U.S is thinking" with cycling dots, then swaps in the reply
+    function horusSay(text, done) {
+      var row = print("H.O.R.U.S is thinking.");
+      var dots = 1;
+      row.className = "thinking";
+      var timer = setInterval(function () {
+        dots = dots % 3 + 1;
+        row.textContent = "H.O.R.U.S is thinking" + ".".repeat(dots);
+      }, 450);
+      setTimeout(function () {
+        clearInterval(timer);
+        row.className = "horus";
+        row.textContent = 'H.O.R.U.S says "' + text + '"';
+        done();
+      }, jitter(3200));
+    }
+
+    // wipes the message history one line at a time, top to bottom
+    function clearLogs(done) {
+      var timer = setInterval(function () {
+        if (termLines.firstChild) {
+          termLines.removeChild(termLines.firstChild);
+          return;
+        }
+        clearInterval(timer);
+        done();
+      }, 140);
+    }
+
+    // messages arrive upper-cased with punctuation stripped; first match wins
+    var RESPONSES = [
+      { match: /^(H+E+L+O+|H+I+|H+O+W+D+Y+|H+E+Y+|HIYA|GREETINGS)\b/, run: function (done) {
+        horusSay("Howdy!", done);
+      } },
+      { match: /^CLEAR (THE )?SYSTEM LOGS?$/, run: function (done) {
+        horusSay("Sure thing!", function () {
+          setTimeout(function () {
+            clearLogs(function () {
+              setTimeout(function () { horusSay("What's next?", done); }, jitter(700));
+            });
+          }, jitter(900));
+        });
+      } }
+    ];
+
+    function respond(message, done) {
+      var text = message.replace(/[^A-Z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+      for (var i = 0; i < RESPONSES.length; i++) {
+        if (RESPONSES[i].match.test(text)) return RESPONSES[i].run(done);
+      }
+      horusSay("I'm afraid I can't help with that yet.", done);
+    }
+
+    function chat() {
+      ask(false, function (message) {
+        if (!message) return chat();
+        setTimeout(function () { respond(message, chat); }, jitter(500));
+      });
+    }
+
+    function startInterface() {
+      runSteps([
+        { wait: 1800, fn: function (next) {
+          term.hidden = false;
+          say(
+            "H.O.R.U.S Command Interface [Version 0.9.7.113]",
+            "(c) COMTECH Artificial Systems Division. All rights reserved.",
+            ""
+          )(next);
+        } },
+        { wait: 1000, fn: say("| Override Protocol Initiated", "") },
+        { wait: 1200, fn: say("System integrity controls are active.", "Active monitoring cannot be disabled.", "") },
+        { wait: 1000, fn: say("Proceed with elevated access? (Y/N)", "") }
+      ], askAccess);
+    }
+
+    runSteps(POST_STEPS, startInterface);
   </script>
 </body>
 </html>
