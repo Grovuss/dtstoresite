@@ -92,7 +92,8 @@ Copyright (C) 1982-96, COMTECH Software, Inc.</div>
 Copyright (C) 1996, COMTECH Systems, Inc.</div>
         <div id="post-ide1" class="step indent">Detecting IDE Primary Master   ... <span id="ide1-result"></span></div>
         <div id="post-ide2" class="step indent">Detecting IDE Primary Slave    ... <span id="ide2-result"></span></div>
-        <div id="post-ide3" class="step indent">Detecting IDE Secondary Master... [Press F4 to skip]</div>
+        <div id="post-ide3" class="step indent">Detecting IDE Secondary Master... <span id="ide3-result">[Press F4 to skip]</span></div>
+        <div id="post-ide4" class="step indent">Detecting IDE Secondary Slave ... <span id="ide4-result">[Press F4 to skip]</span></div>
       </div>
 
       <div id="post-footer" class="step">Press DEL to enter SETUP
@@ -146,7 +147,10 @@ Copyright (C) 1996, COMTECH Systems, Inc.</div>
       { wait: 1900, fn: setText("ide1-result", "PCemHD") },
       { wait: 300, fn: show("post-ide2") },
       { wait: 2600, fn: setText("ide2-result", "PCemCD") },
-      { wait: 300, fn: show("post-ide3") }
+      { wait: 300, fn: show("post-ide3") },
+      { wait: 4200, fn: setText("ide3-result", "None") },
+      { wait: 300, fn: show("post-ide4") },
+      { wait: 4200, fn: setText("ide4-result", "None") }
     ];
 
     function runPost() {
