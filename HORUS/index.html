@@ -206,7 +206,7 @@ Copyright (C) 1996, COMTECH Systems, Inc.</div>
 
   <script>
     var MEMORY_K = 32768;
-    var PASSWORD = "ILOVEMONEY"; // checked without regard to case
+    var PASSWORD = "FinkleWinkleToes1928"; // checked without regard to case
     var PASSWORD_ATTEMPTS = 3;
 
     var crt = document.getElementById("crt");
@@ -402,19 +402,55 @@ Copyright (C) 1996, COMTECH Systems, Inc.</div>
       ask(true, function (password) {
         // a moment of "checking" before the verdict
         setTimeout(function () {
-          if (password === PASSWORD) {
+          if (password === PASSWORD.toUpperCase()) {
             print("Password accepted.");
             connect();
             return;
           }
           attemptsLeft--;
-          if (attemptsLeft > 0) {
-            print("Password denied. " + attemptsLeft + (attemptsLeft === 1 ? " attempt" : " attempts") + " remaining.");
-            askPassword(attemptsLeft);
-          } else {
+          if (attemptsLeft === 0) {
             shutdown("Password denied. Maximum attempts exceeded.");
+            return;
+          }
+          print("Password denied. " + attemptsLeft + (attemptsLeft === 1 ? " attempt" : " attempts") + " remaining.");
+          if (attemptsLeft === 1) {
+            offerHint();
+          } else {
+            askPassword(attemptsLeft);
           }
         }, jitter(1200));
+      });
+    }
+
+    // black cat, birthday cake
+    var HINT = [
+      "",
+      "   /\\_/\\         i i i",
+      "  ( o.o )      .-|-|-|-.",
+      "  /#####\\      |~~~~~~~|",
+      " (#######)     |       |",
+      "  ^^   ^^      '-------'",
+      ""
+    ];
+
+    // offered before the final attempt
+    function offerHint() {
+      print("Would you like a hint? (Y/N)");
+      askHint();
+    }
+
+    function askHint() {
+      ask(false, function (answer) {
+        if (answer === "Y" || answer === "YES" || answer === "N" || answer === "NO") {
+          setTimeout(function () {
+            if (answer.charAt(0) === "Y") say.apply(null, HINT)(function () {});
+            print("Please enter your H.O.R.U.S Override Password.");
+            askPassword(1);
+          }, jitter(700));
+        } else {
+          print("Invalid response. Please enter Y or N.");
+          askHint();
+        }
       });
     }
 
