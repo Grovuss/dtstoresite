@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>HORUS</title>
+  <link rel="icon" href="/favicon/faviconhorus.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
@@ -100,6 +101,19 @@
 
     #post .indent { padding-left: 2ch; }
 
+    #post-header {
+      display: flex;
+      gap: 0.5ch;
+    }
+
+    #ct-logo {
+      flex: none;
+      height: 2.6em;
+      margin-top: -0.15em;
+      fill: #6db356;
+      filter: drop-shadow(0 0 3px rgba(109, 179, 86, 0.5));
+    }
+
     /* command interface, shown after the BIOS screen clears */
     #term {
       max-width: 1200px;
@@ -178,8 +192,8 @@ Copyright (C) 1991-95, COMTECH Systems, Inc.
 
     <div id="post" hidden>
       <div>
-        <div id="post-header" class="step">COMTECH H.O.R.U.S BIOS  v0.94NP, A USDSA Ally
-Copyright (C) 1982-96, COMTECH Software, Inc.</div>
+        <div id="post-header" class="step"><svg id="ct-logo" viewBox="0 0 715 988" aria-hidden="true"><path d="M100 0h250v98H100zM50 98h105v98H50zM300 98h100v98H300zM0 196h105v296H0zM50 492h105v98H50zM300 492h100v98H300zM100 590h250v98H100zM312 296h403v98H312zM460 394h102v594H460z"/></svg><div>COMTECH H.O.R.U.S BIOS  v0.94NP, A USDSA Ally
+Copyright (C) 1982-96, COMTECH Software, Inc.</div></div>
 
         <div id="post-board" class="step gap">(67XWQOE) Quadrus U2400X PCIcore(TM)</div>
 
