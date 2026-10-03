@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HORUS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #000;
+    }
+
+    body {
+      color: #d0d0d0;
+      font-family: "VT323", "Courier New", Courier, "Lucida Console", monospace;
+      font-size: clamp(17px, 2.6vw, 30px);
+      line-height: 1.15;
+      text-shadow: 0 0 4px rgba(255, 255, 255, 0.35);
+    }
+
+    #crt {
+      height: 100%;
+      padding: 24px 16px;
+      overflow-y: auto;
+    }
+
+    /* scanlines */
+    #crt::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0) 0,
+        rgba(0, 0, 0, 0) 2px,
+        rgba(0, 0, 0, 0.28) 3px
+      );
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* vignette */
+    #crt::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.9);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    #post {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 2em;
+      max-width: 1200px;
+      min-height: 100%;
+      margin: 0 auto;
+      padding: 3vh 4vw;
+    }
+
+    #post .step {
+      visibility: hidden;
+      white-space: pre-wrap;
+    }
+
+    #post .gap { margin-top: 1.15em; }
+
+    #post .indent { padding-left: 2ch; }
+  </style>
+</head>
+<body>
+  <div id="crt">
+    <div id="post">
+      <div>
+        <div id="post-header" class="step">COMTECH H.O.R.U.S BIOS  v0.94NP, A USDSA Ally
+Copyright (C) 1982-96, COMTECH Software, Inc.</div>
+
+        <div id="post-board" class="step gap">(67XWQOE) Quadrus U2400X PCIcore(TM)</div>
+
+        <div id="post-cpu" class="step gap">GENIRATUS-X CPU at 5000MHz</div>
+        <div id="post-mem" class="step">Memory Test :   <span id="mem-count">    0</span>K<span id="mem-ok"></span></div>
+
+        <div id="post-aie" class="step gap">COMTECH Adaptive Interface Extension v0.3B
+Copyright (C) 1996, COMTECH Systems, Inc.</div>
+        <div id="post-ide1" class="step indent">Detecting IDE Primary Master   ... <span id="ide1-result"></span></div>
+        <div id="post-ide2" class="step indent">Detecting IDE Primary Slave    ... <span id="ide2-result"></span></div>
+        <div id="post-ide3" class="step indent">Detecting IDE Secondary Master... [Press F4 to skip]</div>
+      </div>
+
+      <div id="post-footer" class="step">Press DEL to enter SETUP
+ 4/15/96-i430VX,LXS4426-R37RNF4C35-00</div>
+    </div>
+  </div>
+
+  <script>
+    var MEMORY_K = 32768;
+
+    function show(id) {
+      return function (next) {
+        document.getElementById(id).style.visibility = "visible";
+        next();
+      };
+    }
+
+    function setText(id, text) {
+      return function (next) {
+        document.getElementById(id).textContent = text;
+        next();
+      };
+    }
+
+    function countMemory(next) {
+      var count = document.getElementById("mem-count");
+      var k = 0;
+      document.getElementById("post-mem").style.visibility = "visible";
+      var timer = setInterval(function () {
+        k += 256;
+        count.textContent = String(k).padStart(5, " ");
+        if (k >= MEMORY_K) {
+          clearInterval(timer);
+          setTimeout(function () {
+            document.getElementById("mem-ok").textContent = " OK";
+            next();
+          }, 500);
+        }
+      }, 28);
+    }
+
+    // each step waits `wait` ms after the previous one finishes
+    var POST_STEPS = [
+      { wait: 1800, fn: show("post-header") },
+      { wait: 0, fn: show("post-footer") },
+      { wait: 1100, fn: show("post-board") },
+      { wait: 1400, fn: show("post-cpu") },
+      { wait: 500, fn: countMemory },
+      { wait: 1200, fn: show("post-aie") },
+      { wait: 900, fn: show("post-ide1") },
+      { wait: 1900, fn: setText("ide1-result", "PCemHD") },
+      { wait: 300, fn: show("post-ide2") },
+      { wait: 2600, fn: setText("ide2-result", "PCemCD") },
+      { wait: 300, fn: show("post-ide3") }
+    ];
+
+    function runPost() {
+      var i = 0;
+      function next() {
+        if (i >= POST_STEPS.length) return;
+        var step = POST_STEPS[i++];
+        setTimeout(function () { step.fn(next); }, step.wait);
+      }
+      next();
+    }
+
+    runPost();
+  </script>
+</body>
+</html>
