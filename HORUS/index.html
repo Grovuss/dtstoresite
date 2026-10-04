@@ -17,26 +17,168 @@
       height: 100%;
       margin: 0;
       background: #000;
+      overflow: hidden;
+    }
+
+    :root {
+      /* red/blue colour fringing from misaligned electron guns */
+      --fringe: 0.05em 0 0 rgba(255, 50, 80, 0.4), -0.05em 0 0 rgba(0, 170, 255, 0.4);
     }
 
     body {
-      color: #d0d0d0;
-      font-family: "VT323", "Courier New", Courier, "Lucida Console", monospace;
-      font-size: clamp(17px, 2.6vw, 30px);
-      line-height: 1.15;
-      text-shadow: 0 0 4px rgba(255, 255, 255, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* plain page note shown before the monitor exists; deliberately not styled
+       like the screen, since it's the website talking, not the computer */
+    #start {
+      padding: 16px;
+      color: #777;
+      font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      letter-spacing: 0.02em;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    /* the screen is a fixed 4:3 box, letterboxed in the window, and everything
+       inside is sized relative to it so the layout is the same at any size */
+    #monitor {
+      position: relative;
+      flex: none;
+      width: min(100vw, 133.333vh);
+      height: min(100vh, 75vw);
+      container-type: size;
     }
 
     #crt {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      color: #d0d0d0;
+      font-family: "VT323", "Courier New", Courier, "Lucida Console", monospace;
+      font-size: 2.4vw;
+      font-size: 2.4cqw;
+      line-height: 1.15;
+      text-shadow: var(--fringe), 0 0 4px rgba(255, 255, 255, 0.35);
+      /* faint tube glow, so the curved edge of the picture shows against the black bezel */
+      background: radial-gradient(ellipse at center, #131613 0%, #070807 100%);
+      /* soft focus; the script adds the screen warp on top of this */
+      filter: blur(0.4px);
+    }
+
+    #scroller {
       height: 100%;
-      padding: 24px 16px;
+      padding: 2cqh 1.5cqw;
       overflow-y: auto;
+      scrollbar-width: none;
+    }
+
+    #scroller::-webkit-scrollbar { display: none; }
+
+    #crt.off { background: #000; }
+
+    /* monitor switching off: the picture collapses to a line, then a dot */
+    #crt.power-off { animation: power-off 0.55s ease-in forwards; }
+
+    @keyframes power-off {
+      0% { opacity: 1; transform: scale(1, 1); }
+      60% { opacity: 1; transform: scale(1, 0.005); }
+      100% { opacity: 0; transform: scale(0, 0.005); }
+    }
+
+    /* moving effects sit above the screen, outside #crt, so they don't force
+       the warp filter to redraw every frame */
+    #fx {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      border-radius: 3% / 4%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #fx div { position: absolute; }
+
+    /* static grain; switched on once the power-on flash has finished */
+    #fx .noise {
+      inset: -256px;
+      visibility: hidden;
+      opacity: 0.03;
+      background-size: 256px;
+      image-rendering: pixelated;
+      animation: noise 0.6s steps(1) infinite;
+    }
+
+    #fx.grain .noise { visibility: visible; }
+
+    @keyframes noise {
+      0% { transform: translate(0, 0); }
+      12% { transform: translate(-90px, 60px); }
+      25% { transform: translate(70px, -110px); }
+      37% { transform: translate(-150px, -40px); }
+      50% { transform: translate(120px, 130px); }
+      62% { transform: translate(-60px, -170px); }
+      75% { transform: translate(180px, 20px); }
+      87% { transform: translate(-200px, 100px); }
+    }
+
+    /* slow bright band rolling down the screen */
+    #fx .scanbar {
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 22%;
+      background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.045), transparent);
+      animation: scanbar 9s linear infinite;
+    }
+
+    /* percentages here are of the band's own height */
+    @keyframes scanbar {
+      from { transform: translateY(-100%); }
+      to { transform: translateY(455%); }
+    }
+
+    /* room light reflecting off the glass */
+    #fx .glare {
+      inset: 0;
+      background: radial-gradient(ellipse at 28% 18%, rgba(255, 255, 255, 0.06), transparent 55%);
+    }
+
+    /* unsteady brightness */
+    #fx .flicker {
+      inset: 0;
+      background: #000;
+      opacity: 0;
+      animation: flicker 4s steps(1) infinite;
+    }
+
+    @keyframes flicker {
+      0% { opacity: 0; }
+      4% { opacity: 0.04; }
+      8% { opacity: 0; }
+      21% { opacity: 0.03; }
+      24% { opacity: 0; }
+      47% { opacity: 0.07; }
+      49% { opacity: 0.02; }
+      52% { opacity: 0; }
+      70% { opacity: 0.04; }
+      73% { opacity: 0; }
+      91% { opacity: 0.05; }
+      94% { opacity: 0; }
+    }
+
+    #warp-defs {
+      position: absolute;
+      width: 0;
+      height: 0;
     }
 
     /* scanlines */
     #crt::before {
       content: "";
-      position: fixed;
+      position: absolute;
       inset: 0;
       background: repeating-linear-gradient(
         to bottom,
@@ -51,16 +193,16 @@
     /* vignette */
     #crt::after {
       content: "";
-      position: fixed;
+      position: absolute;
       inset: 0;
-      box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.9);
+      box-shadow: inset 0 0 11cqw rgba(0, 0, 0, 0.9);
       pointer-events: none;
       z-index: 3;
     }
 
     /* monitor switching on: a bright line that opens up into the picture */
     #tube {
-      position: fixed;
+      position: absolute;
       inset: 0;
       background: #dfe6ff;
       opacity: 0;
@@ -76,11 +218,7 @@
       100% { opacity: 0; transform: scale(1, 1); }
     }
 
-    #vga, #post {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 3vh 4vw;
-    }
+    #vga, #post { padding: 3cqh 4cqw; }
 
     #vga { white-space: pre-wrap; }
 
@@ -115,11 +253,7 @@
     }
 
     /* command interface, shown after the BIOS screen clears */
-    #term {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 3vh 4vw;
-    }
+    #term { padding: 3cqh 4cqw; }
 
     #term-lines div, #prompt {
       min-height: 1.15em;
@@ -129,12 +263,12 @@
 
     #term-lines .thinking {
       color: #5f7a3a;
-      text-shadow: 0 0 4px rgba(95, 122, 58, 0.5);
+      text-shadow: var(--fringe), 0 0 4px rgba(95, 122, 58, 0.5);
     }
 
     #term-lines .horus {
       color: #b8e060;
-      text-shadow: 0 0 4px rgba(184, 224, 96, 0.45);
+      text-shadow: var(--fringe), 0 0 4px rgba(184, 224, 96, 0.45);
     }
 
     #prompt { position: relative; }
@@ -179,12 +313,27 @@
     @media (prefers-reduced-motion: reduce) {
       #tube { display: none; }
       .cursor { animation: none; }
+      #crt.power-off { animation: none; }
+      #fx .noise, #fx .flicker { animation: none; }
+      #fx .scanbar { display: none; }
     }
   </style>
 </head>
 <body>
+  <svg id="warp-defs" aria-hidden="true">
+    <filter id="warp" x="0" y="0" width="1" height="1" color-interpolation-filters="sRGB">
+      <feImage id="warp-map" preserveAspectRatio="none" result="map"/>
+      <feDisplacementMap id="warp-shift" in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
+
+  <div id="start">Click or press any key to begin<br>This page plays sound</div>
+
+  <div id="monitor" hidden>
   <div id="crt">
     <div id="tube"></div>
+
+    <div id="scroller">
 
     <div id="vga" hidden>COMTECH SVGA BIOS v2.11
 Copyright (C) 1991-95, COMTECH Systems, Inc.
@@ -216,6 +365,15 @@ Copyright (C) 1996, COMTECH Systems, Inc.</div>
       <div id="term-lines"></div>
       <div id="prompt" hidden>&gt; <span id="echo"></span><span class="cursor">_</span><input id="cmd" type="text" maxlength="32" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Terminal input"></div>
     </div>
+    </div>
+  </div>
+
+  <div id="fx" aria-hidden="true">
+    <div class="noise"></div>
+    <div class="scanbar"></div>
+    <div class="glare"></div>
+    <div class="flicker"></div>
+  </div>
   </div>
 
   <script>
@@ -223,7 +381,9 @@ Copyright (C) 1996, COMTECH Systems, Inc.</div>
     var PASSWORD = "FinkleWinkleToes1928"; // checked without regard to case
     var PASSWORD_ATTEMPTS = 3;
 
+    var monitor = document.getElementById("monitor");
     var crt = document.getElementById("crt");
+    var scroller = document.getElementById("scroller");
     var vga = document.getElementById("vga");
     var post = document.getElementById("post");
     var term = document.getElementById("term");
@@ -231,6 +391,98 @@ Copyright (C) 1996, COMTECH Systems, Inc.</div>
     var promptRow = document.getElementById("prompt");
     var echo = document.getElementById("echo");
     var cmd = document.getElementById("cmd");
+
+    // --- curved-glass screen warp ---
+    // Bends the whole picture like the front of a CRT tube. The filter reads a
+    // generated map whose red/green channels say how far to shift each pixel.
+
+    var WARP = 0.035; // strength; 0 is a flat screen
+    var WARP_MAP_SIZE = 256;
+
+    // WebKit (Safari, and every browser on iOS) mishandles this filter
+    var canWarp = !(/AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Edg/.test(navigator.userAgent));
+
+    function applyWarp() {
+      var w = crt.offsetWidth;
+      var h = crt.offsetHeight;
+      if (!w || !h) return;
+      var scale = 2 * WARP * Math.max(w, h);
+      var canvas = document.createElement("canvas");
+      canvas.width = canvas.height = WARP_MAP_SIZE;
+      var ctx = canvas.getContext("2d");
+      var image = ctx.createImageData(WARP_MAP_SIZE, WARP_MAP_SIZE);
+      var data = image.data;
+      for (var y = 0; y < WARP_MAP_SIZE; y++) {
+        for (var x = 0; x < WARP_MAP_SIZE; x++) {
+          // position from -1 to 1, measured from the middle of the screen
+          var nx = (x + 0.5) / WARP_MAP_SIZE * 2 - 1;
+          var ny = (y + 0.5) / WARP_MAP_SIZE * 2 - 1;
+          var r2 = nx * nx + ny * ny;
+          var i = (y * WARP_MAP_SIZE + x) * 4;
+          data[i] = Math.round(255 * (0.5 + nx * r2 * WARP * w / 2 / scale));
+          data[i + 1] = Math.round(255 * (0.5 + ny * r2 * WARP * h / 2 / scale));
+          data[i + 2] = 0;
+          data[i + 3] = 255;
+        }
+      }
+      ctx.putImageData(image, 0, 0);
+      document.getElementById("warp-map").setAttribute("href", canvas.toDataURL());
+      document.getElementById("warp-shift").setAttribute("scale", scale);
+      crt.style.filter = "blur(0.4px) url(#warp)";
+      document.getElementById("fx").style.clipPath = warpOutline();
+    }
+
+    // the curved edge of the warped picture, as a clip-path, so the overlay
+    // effects stay inside the screen instead of spilling onto the bezel
+    function warpOutline() {
+      var corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+      var perSide = 16;
+      var points = [];
+      for (var c = 0; c < 4; c++) {
+        var a = corners[c];
+        var b = corners[(c + 1) % 4];
+        for (var s = 0; s < perSide; s++) {
+          // a point on the flat screen's edge...
+          var x = a[0] + (b[0] - a[0]) * s / perSide;
+          var y = a[1] + (b[1] - a[1]) * s / perSide;
+          // ...and how far from the middle the warp draws it
+          var flat = Math.sqrt(x * x + y * y);
+          var bent = flat;
+          for (var i = 0; i < 20; i++) bent = flat / (1 + WARP * bent * bent);
+          var f = bent / flat;
+          points.push(((x * f + 1) * 50).toFixed(2) + "% " + ((y * f + 1) * 50).toFixed(2) + "%");
+        }
+      }
+      return "polygon(" + points.join(",") + ")";
+    }
+
+    if (canWarp) {
+      var warpTimer = null;
+      window.addEventListener("resize", function () {
+        clearTimeout(warpTimer);
+        warpTimer = setTimeout(applyWarp, 150);
+      });
+    }
+
+    // --- screen wear and tear ---
+
+    var fx = document.getElementById("fx");
+
+    // one small tile of random grey static, repeated across the screen
+    (function makeNoise() {
+      var size = 128;
+      var canvas = document.createElement("canvas");
+      canvas.width = canvas.height = size;
+      var ctx = canvas.getContext("2d");
+      var image = ctx.createImageData(size, size);
+      for (var i = 0; i < image.data.length; i += 4) {
+        var v = Math.floor(Math.random() * 256);
+        image.data[i] = image.data[i + 1] = image.data[i + 2] = v;
+        image.data[i + 3] = 255;
+      }
+      ctx.putImageData(image, 0, 0);
+      fx.querySelector(".noise").style.backgroundImage = "url(" + canvas.toDataURL() + ")";
+    })();
 
     // hardware never takes exactly the same time twice
     function jitter(ms) {
@@ -337,7 +589,7 @@ Copyright (C) 1996, COMTECH Systems, Inc.</div>
       var row = document.createElement("div");
       row.textContent = text;
       termLines.appendChild(row);
-      crt.scrollTop = crt.scrollHeight;
+      scroller.scrollTop = scroller.scrollHeight;
       return row;
     }
 
@@ -350,8 +602,16 @@ Copyright (C) 1996, COMTECH Systems, Inc.</div>
     }
 
     function blackout(next) {
-      term.hidden = true;
-      next();
+      crt.classList.add("power-off");
+      poweredOff = true;
+      startupSound.pause();
+      idleSound.pause();
+      setTimeout(function () {
+        term.hidden = true;
+        fx.hidden = true;
+        crt.classList.add("off");
+        next();
+      }, 600);
     }
 
     // prompt for a line of input; `masked` echoes asterisks instead of the text
@@ -369,13 +629,30 @@ Copyright (C) 1996, COMTECH Systems, Inc.</div>
       promptRow.hidden = false;
       onSubmit = handler;
       cmd.focus();
-      crt.scrollTop = crt.scrollHeight;
+      scroller.scrollTop = scroller.scrollHeight;
     }
 
-    cmd.addEventListener("input", renderEcho);
+    // key click at a slightly different pitch each time, so typing doesn't
+    // sound like one sample on repeat
+    var KEY_VOLUME = 1;
+
+    function playKey() {
+      var click = new Audio("../Sounds/keypress.mp3");
+      click.volume = KEY_VOLUME;
+      click.preservesPitch = false;
+      click.playbackRate = 0.88 + Math.random() * 0.24;
+      click.play().catch(function () {});
+    }
+
+    // fires only when the typed text actually changes
+    cmd.addEventListener("input", function () {
+      renderEcho();
+      playKey();
+    });
 
     cmd.addEventListener("keydown", function (e) {
       if (e.key !== "Enter" || !onSubmit) return;
+      playKey();
       var handler = onSubmit;
       onSubmit = null;
       promptRow.hidden = true;
@@ -588,7 +865,56 @@ Copyright (C) 1996, COMTECH Systems, Inc.</div>
       ], askAccess);
     }
 
-    runSteps(POST_STEPS, startInterface);
+    // --- power and sound ---
+
+    var STARTUP_VOLUME = 1;
+    var IDLE_VOLUME = 1;
+    var IDLE_FADE_MS = 4000;
+    var GRAIN_DELAY_MS = 1400; // just after the power-on flash ends
+
+    var startupSound = new Audio("../Sounds/Startup.mp3");
+    var idleSound = new Audio("../Sounds/idle.mp3");
+    var poweredOff = false;
+    var idleStarted = false;
+
+    startupSound.volume = STARTUP_VOLUME;
+    idleSound.loop = true;
+
+    // the idle hum fades in the first time, then loops at full level
+    function startIdle() {
+      if (idleStarted || poweredOff) return;
+      idleStarted = true;
+      idleSound.volume = 0;
+      idleSound.play().catch(function () {});
+      var began = performance.now();
+      var timer = setInterval(function () {
+        var t = Math.min(1, (performance.now() - began) / IDLE_FADE_MS);
+        idleSound.volume = IDLE_VOLUME * t;
+        if (t >= 1 || poweredOff) clearInterval(timer);
+      }, 50);
+    }
+
+    // idle comes in halfway through the startup sound
+    startupSound.addEventListener("timeupdate", function () {
+      if (startupSound.currentTime >= startupSound.duration / 2) startIdle();
+    });
+    startupSound.addEventListener("ended", startIdle);
+
+    // browsers refuse to play sound before a click or key press, so the
+    // machine waits for one before switching on
+    function powerOn() {
+      document.removeEventListener("keydown", powerOn);
+      document.removeEventListener("pointerdown", powerOn);
+      document.getElementById("start").remove();
+      monitor.hidden = false;
+      if (canWarp) applyWarp();
+      startupSound.play().catch(function () {});
+      setTimeout(function () { fx.classList.add("grain"); }, GRAIN_DELAY_MS);
+      runSteps(POST_STEPS, startInterface);
+    }
+
+    document.addEventListener("keydown", powerOn);
+    document.addEventListener("pointerdown", powerOn);
   </script>
 </body>
 </html>
